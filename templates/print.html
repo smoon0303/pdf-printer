@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>PDF 열기</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: Arial;
+            text-align: center;
+            padding: 15px;
+        }
+        button {
+            width: 100%;
+            padding: 18px;
+            margin: 12px 0;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+
+<h2>📄 PDF 출력</h2>
+
+<button onclick="window.open('{{ pdf_url }}', '_blank')">
+    📂 PDF 열기
+</button>
+
+<button onclick="window.print()">
+    🖨️ 인쇄 (PC 권장)
+</button>
+
+<a href="/logout">
+    <button>🔒 로그아웃</button>
+</a>
+
+</body>
+</html>
