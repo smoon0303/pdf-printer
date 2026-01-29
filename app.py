@@ -50,7 +50,7 @@ def login():
     user = df[df["userid"] == userid]
 
     if user.empty:
-        return "존재하지 않는 사용자입니다."
+        return "신상신고가 완료되지 않았습니다. 회비 납부와 온라인회원신고를 모두 하셔야 신상신고가 완료됩니다."
 
     hashed_pw = user.iloc[0]["password"]
 
