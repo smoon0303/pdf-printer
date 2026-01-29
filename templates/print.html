@@ -1,34 +1,110 @@
 <!DOCTYPE html>
-<html>
+<html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>PDF 열기</title>
+    <title>PDF 출력 화면</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <style>
         body {
-            font-family: Arial;
-            text-align: center;
-            padding: 15px;
+            font-family: Arial, sans-serif;
+            background: #f4f6f8;
+            margin: 0;
+            padding: 0;
         }
-        button {
-            width: 100%;
-            padding: 18px;
-            margin: 12px 0;
-            font-size: 18px;
+
+        header {
+            background: #1f2933;
+            color: white;
+            padding: 12px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .user-info {
+            font-size: 14px;
+        }
+
+        .logout-btn {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .container {
+            padding: 20px;
+        }
+
+        .pdf-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 12px;
+        }
+
+        .pdf-item {
+            background: white;
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+            box-shadow: 0 1px 5px rgba(0,0,0,0.1);
+        }
+
+        .pdf-item a {
+            text-decoration: none;
+            color: #2563eb;
+            font-weight: bold;
+        }
+
+        .year-badge {
+            display: inline-block;
+            background: #2563eb;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            margin-bottom: 10px;
+        }
+
+        @media (max-width: 600px) {
+            .pdf-list {
+                grid-template-columns: repeat(2, 1fr);
+            }
         }
     </style>
 </head>
+
 <body>
 
-<h2>📄 PDF 출력</h2>
+<header>
+    <div class="user-info">
+        👤 {{ user }} | {{ year }}년 PDF 목록
+    </div>
 
-<button onclick="window.open('{{ pdf_url }}', '_blank')">
-    📂 PDF 열기
-</button>
+    <form action="/logout" method="get">
+        <button class="logout-btn">로그아웃</button>
+    </form>
+</header>
 
-<a href="/logout">
-    <button>🔒 로그아웃</button>
-</a>
+<div class="container">
+
+    <div class="pdf-list">
+        {% for pdf in pdf_files %}
+        <div class="pdf-item">
+            <div class="year-badge">{{ year }}</div>
+            <a href="/pdf/{{ year }}/{{ pdf }}" target="_blank">
+                📄 {{ pdf }}
+            </a>
+        </div>
+        {% else %}
+        <p>PDF 파일이 없습니다.</p>
+        {% endfor %}
+    </div>
+
+</div>
 
 </body>
 </html>

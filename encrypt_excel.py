@@ -1,7 +1,7 @@
 import pandas as pd
 from werkzeug.security import generate_password_hash
 
-EXCEL_FILE = "users.xlsx"
+EXCEL_FILE = "users_2026.xlsx"
 
 # 엑셀 불러오기
 df = pd.read_excel(EXCEL_FILE)

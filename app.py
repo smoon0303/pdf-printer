@@ -1,163 +1,121 @@
-
-from flask import Flask, render_template, request, send_from_directory, redirect, url_for, session
+from flask import Flask, render_template, request, redirect, session, send_from_directory, abort
 from werkzeug.security import check_password_hash
 import pandas as pd
 import os
-from datetime import datetime
 
-def is_admin():
-    return session.get("userid") == "admin"
-
-
-
-LOG_FILE = "print_log.csv"
-
-def save_print_log(userid, pdf, ip):
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    line = f"{now},{userid},{pdf},{ip}\n"
-
-    # 파일이 없으면 헤더 생성
-    if not os.path.exists(LOG_FILE):
-        with open(LOG_FILE, "w", encoding="utf-8") as f:
-            f.write("time,userid,pdf,ip\n")
-
-    with open(LOG_FILE, "a", encoding="utf-8") as f:
-        f.write(line)
-
-
+# --------------------
+# Flask 기본 설정
+# --------------------
 app = Flask(__name__, static_folder=None)
-
 app.secret_key = "very-strong-secret-key-987654321"
 
-EXCEL_FILE = "users.xlsx"
-PDF_FOLDER = "pdfs"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+PDF_ROOT = os.path.join(BASE_DIR, "pdfs")
 
-def load_users():
-    return pd.read_excel(EXCEL_FILE)
+# --------------------
+# 공통 함수
+# --------------------
+def load_users(year):
+    """
+    선택된 연도의 엑셀 파일을 읽는다.
+    예: users_2025.xlsx / users_2026.xlsx
+    """
+    excel_file = os.path.join(BASE_DIR, f"users_{year}.xlsx")
 
+    if not os.path.exists(excel_file):
+        raise FileNotFoundError(f"{excel_file} 파일이 존재하지 않습니다.")
+
+    return pd.read_excel(excel_file)
+
+
+# --------------------
+# 로그인 화면
+# --------------------
 @app.route("/")
 def home():
     return render_template("login.html")
 
+
+# --------------------
+# 로그인 처리
+# --------------------
 @app.route("/login", methods=["POST"])
 def login():
-    userid = request.form["userid"]
-    password = request.form["password"]
+    userid = request.form.get("userid")
+    password = request.form.get("password")
+    year = request.form.get("year")
 
-    df = load_users()
+    df = load_users(year)
+
     user = df[df["userid"] == userid]
 
-    if len(user) == 0:
-        return "존재하지 않는 사용자입니다"
+    if user.empty:
+        return "존재하지 않는 사용자입니다."
 
-    hashed_password = user.iloc[0]["password"]
-    pdf_file = user.iloc[0]["pdf"]
+    hashed_pw = user.iloc[0]["password"]
 
-    if not check_password_hash(hashed_password, password):
-        return "비밀번호가 틀렸습니다"
+    if not check_password_hash(hashed_pw, password):
+        return "비밀번호가 올바르지 않습니다."
 
-    # 🔐 세션 저장
-    session.clear()
-    session["userid"] = userid
-    session["pdf"] = pdf_file
+    # 로그인 성공 → 세션 저장
+    session["user"] = userid
+    session["year"] = year
 
-    print("✅ 세션 생성:", session)
+    return redirect("/print")
 
-    return redirect(url_for("print_page"))
 
+# --------------------
+# PDF 목록 화면
+# --------------------
 @app.route("/print")
 def print_page():
-    if "userid" not in session:
-        return redirect(url_for("home"))
+    if "user" not in session:
+        return redirect("/")
 
-    pdf_file = session["pdf"]
+    year = session.get("year", "2025")
+    userid = session.get("user")
 
-    # ✅ 출력 로그 저장
-    save_print_log(
-        userid=session["userid"],
-        pdf=pdf_file,
-        ip=request.remote_addr
+    df = load_users(year)
+
+    user_row = df[df["userid"] == userid]
+
+    if user_row.empty:
+        return "사용자 정보를 찾을 수 없습니다."
+
+    user_pdf = user_row.iloc[0]["pdf"]   # 엑셀에 저장된 pdf 이름
+
+    return render_template(
+        "print.html",
+        pdf_files=[user_pdf],             # ✅ 내 PDF만 전달
+        year=year,
+        user=userid
     )
 
-    return render_template("print.html", pdf_url=f"/pdf/{pdf_file}")
 
-@app.route("/pdf/<filename>")
-def serve_pdf(filename):
-    print("📂 PDF 접근 요청:", filename)
-    print("🔍 현재 세션:", session)
+# --------------------
+# PDF 다운로드 (보안 보호)
+# --------------------
+@app.route("/pdf/<year>/<filename>")
+def serve_pdf(year, filename):
+    if "user" not in session:
+        abort(403)
 
-    if "userid" not in session:
-        return "접근 권한 없음", 403
+    folder = os.path.join(PDF_ROOT, year)
 
-    return send_from_directory(PDF_FOLDER, filename)
-
-@app.route("/admin", methods=["GET", "POST"])
-def admin():
-    if "userid" not in session:
-        return redirect(url_for("home"))
-
-    if not is_admin():
-        return "관리자만 접근 가능합니다 ❌", 403
-
-    message = ""
-
-    if request.method == "POST":
-        file = request.files.get("file")
-
-        if not file or file.filename == "":
-            message = "파일을 선택하세요"
-        elif not allowed_file(file.filename):
-            message = "xlsx 파일만 업로드 가능합니다"
-        else:
-            filename = secure_filename(file.filename)
-            save_path = os.path.join(UPLOAD_FOLDER, filename)
-            file.save(save_path)
-
-            # users.xlsx 덮어쓰기
-            os.replace(save_path, EXCEL_FILE)
-            message = "업로드 완료! 즉시 반영되었습니다 ✅"
-
-    return f"""
-        <h2>👑 관리자 페이지</h2>
-        <p style='color:green;'>{message}</p>
-
-        <hr>
-
-        <h3>📥 사용자 엑셀 업로드</h3>
-        <form method="post" enctype="multipart/form-data">
-            <input type="file" name="file">
-            <button type="submit">업로드</button>
-        </form>
-
-        <hr>
-
-        <h3>📊 출력 로그</h3>
-        <a href="/logs" target="_blank">로그 보기</a>
-
-        <hr>
-
-        <a href="/logout">로그아웃</a>
-    """
-@app.route("/logs")
-def view_logs():
-    if "userid" not in session or not is_admin():
-        return "관리자만 접근 가능합니다", 403
-
-    if not os.path.exists(LOG_FILE):
-        return "아직 로그가 없습니다."
-
-    with open(LOG_FILE, "r", encoding="utf-8") as f:
-        return f"<pre>{f.read()}</pre>"
+    return send_from_directory(folder, filename, as_attachment=False)
 
 
-
+# --------------------
+# 로그아웃
+# --------------------
 @app.route("/logout")
 def logout():
     session.clear()
-    return redirect(url_for("home"))
+    return redirect("/")
 
+
+# --------------------
+# 서버 실행
+# --------------------
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
-
-
-
+    app.run(debug=True)
