@@ -10,7 +10,7 @@ def encrypt_if_needed(pw):
     pw = str(pw)
 
     # 이미 암호화된 경우 → 그대로 유지
-    if pw.startswith("pbkdf2:"):
+    if pw.startswith("scrypt:32768:8:1"):
         return pw
 
     # 평문인 경우만 암호화
